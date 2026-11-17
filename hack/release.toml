@@ -1133,6 +1133,16 @@ a node with an invalid mount path in its saved machine configuration fails to lo
 Config files are now stored on a dedicated 1 MiB tmpfs, which limits the total size of all extension service config files.
 """
 
+    [notes.azure_nvme_disks]
+        title = "Azure NVMe Disk Links"
+        description = """\
+Talos now ships the NVMe part of the [azure-vm-utils](https://github.com/Azure/azure-vm-utils) udev rules, along with a Go port of its
+`azure-nvme-id --udev` helper, creating the `/dev/disk/azure` links of remote (`MSFT NVMe Accelerator v1.0`, e.g. v6/v7 sizes)
+and local (`Microsoft NVMe Direct Disk`) NVMe disks.
+The Azure Disk CSI driver requires `/dev/disk/azure/data/by-lun/<lun>` to find data disks on NVMe VM sizes.
+The I/O timeout of remote NVMe disks is raised to 240 seconds, as Azure retries remote I/O for up to 120 seconds.
+"""
+
 [make_deps]
 
     [make_deps.tools]
