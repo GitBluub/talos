@@ -521,6 +521,23 @@ FROM init-build-${TARGETARCH} AS init-build
 FROM scratch AS init
 COPY --link --from=init-build /init /init
 
+# The azure-nvme-id target builds the udev helper identifying Azure NVMe disks.
+
+FROM base AS azure-nvme-id-build-amd64
+WORKDIR /src/internal/app/azure-nvme-id
+ARG GO_BUILDFLAGS
+ARG GO_LDFLAGS
+ARG GOAMD64
+RUN --mount=type=cache,target=/.cache,id=talos/.cache GOOS=linux GOARCH=amd64 GOAMD64=${GOAMD64} go build ${GO_BUILDFLAGS} -ldflags "${GO_LDFLAGS}" -o /azure-nvme-id
+RUN chmod +x /azure-nvme-id
+
+FROM base AS azure-nvme-id-build-arm64
+WORKDIR /src/internal/app/azure-nvme-id
+ARG GO_BUILDFLAGS
+ARG GO_LDFLAGS
+RUN --mount=type=cache,target=/.cache,id=talos/.cache GOOS=linux GOARCH=arm64 go build ${GO_BUILDFLAGS} -ldflags "${GO_LDFLAGS}" -o /azure-nvme-id
+RUN chmod +x /azure-nvme-id
+
 # The machined target builds the machined binary.
 
 FROM base AS machined-build-amd64
@@ -811,6 +828,7 @@ COPY --link --from=pkg-kmod-amd64 /usr/bin/kmod /rootfs/usr/bin/modprobe
 COPY --link --from=pkg-kmod-amd64 usr/share/spdx/kmod.spdx.json /rootfs/usr/share/spdx/kmod.spdx.json
 COPY --link --from=modules-amd64 /usr/lib/modules /rootfs/usr/lib/modules
 COPY --link --from=machined-build-amd64 /machined /rootfs/usr/bin/init
+COPY --link --from=azure-nvme-id-build-amd64 /azure-nvme-id /rootfs/usr/lib/udev/azure-nvme-id
 
 RUN <<END
     # the orderly_poweroff call by the kernel will call '/sbin/poweroff'
@@ -842,7 +860,7 @@ COPY --chmod=0644 hack/containerd.toml /rootfs/etc/containerd/config.toml
 COPY --chmod=0644 hack/cri-containerd.toml /rootfs/etc/cri/containerd.toml
 COPY --chmod=0644 hack/cri-plugin.part /rootfs/etc/cri/conf.d/00-base.part
 COPY --chmod=0644 hack/udevd/99-default.link /rootfs/usr/lib/systemd/network/
-COPY --chmod=0644 hack/udevd/40-vm-hotadd.rules hack/udevd/90-md-raid-arrays.rules hack/udevd/90-md-raid-assembly.rules hack/udevd/90-selinux.rules hack/udevd/99-talos.rules /rootfs/usr/lib/udev/rules.d/
+COPY --chmod=0644 hack/udevd/40-vm-hotadd.rules hack/udevd/80-azure-disk.rules hack/udevd/90-md-raid-arrays.rules hack/udevd/90-md-raid-assembly.rules hack/udevd/90-selinux.rules hack/udevd/99-talos.rules /rootfs/usr/lib/udev/rules.d/
 COPY --chmod=0644 hack/lvm.conf /rootfs/etc/lvm/lvm.conf
 COPY --link --chmod=0644 --from=base /src/pkg/machinery/version/os-release /rootfs/etc/os-release
 RUN <<END
@@ -904,6 +922,7 @@ COPY --link --from=pkg-kmod-arm64 /usr/bin/kmod /rootfs/usr/bin/modprobe
 COPY --link --from=pkg-kmod-arm64 /usr/share/spdx/kmod.spdx.json /rootfs/usr/share/spdx/kmod.spdx.json
 COPY --link --from=modules-arm64 /usr/lib/modules /rootfs/usr/lib/modules
 COPY --link --from=machined-build-arm64 /machined /rootfs/usr/bin/init
+COPY --link --from=azure-nvme-id-build-arm64 /azure-nvme-id /rootfs/usr/lib/udev/azure-nvme-id
 
 RUN <<END
     # the orderly_poweroff call by the kernel will call '/sbin/poweroff'
@@ -935,7 +954,7 @@ COPY --chmod=0644 hack/containerd.toml /rootfs/etc/containerd/config.toml
 COPY --chmod=0644 hack/cri-containerd.toml /rootfs/etc/cri/containerd.toml
 COPY --chmod=0644 hack/cri-plugin.part /rootfs/etc/cri/conf.d/00-base.part
 COPY --chmod=0644 hack/udevd/99-default.link /rootfs/usr/lib/systemd/network/
-COPY --chmod=0644 hack/udevd/40-vm-hotadd.rules hack/udevd/90-md-raid-arrays.rules hack/udevd/90-md-raid-assembly.rules hack/udevd/90-selinux.rules hack/udevd/99-talos.rules /rootfs/usr/lib/udev/rules.d/
+COPY --chmod=0644 hack/udevd/40-vm-hotadd.rules hack/udevd/80-azure-disk.rules hack/udevd/90-md-raid-arrays.rules hack/udevd/90-md-raid-assembly.rules hack/udevd/90-selinux.rules hack/udevd/99-talos.rules /rootfs/usr/lib/udev/rules.d/
 COPY --chmod=0644 hack/lvm.conf /rootfs/etc/lvm/lvm.conf
 COPY --link --chmod=0644 --from=base /src/pkg/machinery/version/os-release /rootfs/etc/os-release
 RUN <<END
